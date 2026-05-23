@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>扫雷Plus - 高数扫雷</title>
+<style>
+:root {
+  --bg: #1a1d25; --bg2: #242833; --text: #d6d9e0; --accent: #e0a840;
+  --cell-closed: #2e3140; --cell-open: #1e202b; --cell-hover: #363b4a;
+  --modal-bg: #21242f; --border: #3a3e4d; --danger: #e0556a; --success: #5ebd6e;
+  --toast-bg: #282c38; --shadow: 0 4px 24px rgba(0,0,0,0.6);
+  --cell-size: 40px; --font-math: 'Georgia', 'Times New Roman', serif;
+  --chalk-1: #7eb8f4; --chalk-2: #6ccf7a; --chalk-3: #f07070; --chalk-4: #bf7ce6;
+  --chalk-5: #f08050; --chalk-more: #f05050;
+}
+.light {
+  --bg: #f5f3ee; --bg2: #ede8df; --text: #2c2416; --accent: #b07815;
+  --cell-closed: #ddd6c8; --cell-open: #eae5da; --cell-hover: #d0c9bb;
+  --modal-bg: #f8f5f0; --border: #ccc3b0; --danger: #c0392b; --success: #27ae60;
+  --toast-bg: #fefbf6; --shadow: 0 4px 24px rgba(0,0,0,0.12);
+  --chalk-1: #2266cc; --chalk-2: #228833; --chalk-3: #cc2233; --chalk-4: #8822aa;
+  --chalk-5: #cc5511; --chalk-more: #aa1111;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg); color: var(--text); min-height:100vh;
+  transition: background .3s, color .3s; overflow-x:hidden;
+}
+.app { max-width:800px; margin:0 auto; padding:10px 8px; user-select:none; -webkit-user-select:none; }
+.header {
+  display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
+  background:var(--bg2); border-radius:12px; margin-bottom:10px; flex-wrap:wrap; gap:8px;
+}
+.header h1 { font-family:var(--font-math); font-size:1.4em; color:var(--accent); white-space:nowrap; }
+.header-btns { display:flex; gap:6px; flex-wrap:wrap; }
+.btn {
+  padding:8px 14px; border:2px solid var(--border); border-radius:8px; cursor:pointer;
+  background:var(--bg2); color:var(--text); font-size:0.85em; font-weight:600;
+  transition:all .15s; white-space:nowrap; font-family:inherit;
+}
+.btn:active { transform:scale(0.95); }
+.btn:hover { border-color:var(--accent); color:var(--accent); }
+.btn.accent { background:var(--accent); color:#1a1a1a; border-color:var(--accent); }
+.btn.small { padding:4px 10px; font-size:0.75em; }
+.btn.danger { border-color:var(--danger); color:var(--danger); }
+.info-bar {
+  display:flex; align-items:center; justify-content:space-around; padding:10px;
+  background:var(--bg2); border-radius:12px; margin-bottom:10px; flex-wrap:wrap; gap:8px;
+}
+.info-item { text-align:center; min-width:55px; }
+.info-label { font-size:0.7em; opacity:0.7; }
+.info-value { font-size:1.2em; font-weight:700; color:var(--accent); }
+.info-value.lives { color:var(--danger); }
+.board-wrap {
+  display:flex; justify-content:center; align-items:center; margin:10px 0;
+  overflow:auto; -webkit-overflow-scrolling:touch; padding:5px;
+}
+.board {
+  display:grid; gap:2px; background:var(--border); padding:3px; border-radius:8px;
+  box-shadow:var(--shadow);
+}
+.cell {
+  width:var(--cell-size); height:var(--cell-size); border:none; border-radius:3px;
+  background:var(--cell-closed); cursor:pointer; font-weight:700;
+  font-size:calc(var(--cell-size) * 0.45); color:var(--text);
+  display:flex; align-items:center; justify-content:center;
+  transition:background .1s, transform .1s; position:relative;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05), 1px 2px 3px rgba(0,0,0,0.3);
+}
+.cell:active { transform:scale(0.92); }
+.cell:hover { background:var(--cell-hover); }
+.cell.open {
+  background:var(--cell-open); box-shadow:inset 0 1px 3px rgba(0,0,0,0.3);
+  cursor:default;
+}
+.cell.open:hover { background:var(--cell-open); }
+.cell.open:active { transform:none; }
+.cell.flag { background:var(--cell-closed); }
+.cell.mine-hit { background:var(--danger) !important; animation:shake .4s; }
+.cell.chalk-1 { color:var(--chalk-1); }
+.cell.chalk-2 { color:var(--chalk-2); }
+.cell.chalk-3 { color:var(--chalk-3); }
+.cell.chalk-4 { color:var(--chalk-4); }
+.cell.chalk-5 { color:var(--chalk-5); }
+.cell.chalk-more { color:var(--chalk-more); }
+.diff-selector { display:flex; gap:6px; justify-content:center; margin-bottom:8px; }
+.diff-btn {
+  padding:6px 16px; border:2px solid var(--border); border-radius:20px;
+  cursor:pointer; background:transparent; color:var(--text); font-size:0.85em;
+  transition:all .15s; font-family:inherit;
+}
+.diff-btn.active { background:var(--accent); color:#1a1a1a; border-color:var(--accent); }
+.diff-btn:hover:not(.active) { border-color:var(--accent); }
+.modal-overlay {
+  position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7);
+  display:flex; align-items:center; justify-content:center; z-index:100;
+  animation:fadeIn .2s;
+}
+.modal {
+  background:var(--modal-bg); border-radius:16px; padding:24px; max-width:440px;
+  width:92%; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow);
+  border:1px solid var(--border); animation:slideUp .3s;
+}
+.modal h2 { font-family:var(--font-math); color:var(--accent); margin-bottom:16px; text-align:center; }
+.modal h3 { color:var(--accent); margin-bottom:12px; }
+.question-display {
+  background:var(--bg); border-radius:10px; padding:20px; margin-bottom:16px;
+  text-align:center; font-family:var(--font-math); font-size:1.3em;
+  line-height:1.6; border:1px solid var(--border); min-height:60px;
+  display:flex; align-items:center; justify-content:center;
+  white-space:pre-wrap; word-break:break-all;
+}
+.answer-input {
+  width:100%; padding:12px; border:2px solid var(--border); border-radius:10px;
+  background:var(--bg); color:var(--text); font-size:1.1em; text-align:center;
+  font-family:var(--font-math); outline:none; transition:border-color .2s;
+}
+.answer-input:focus { border-color:var(--accent); }
+.modal-btns { display:flex; gap:8px; margin-top:12px; justify-content:center; flex-wrap:wrap; }
+.timer-bar {
+  height:4px; background:var(--border); border-radius:2px; margin:12px 0; overflow:hidden;
+}
+.timer-fill {
+  height:100%; background:var(--accent); border-radius:2px; transition:width .3s linear;
+}
+.timer-fill.urgent { background:var(--danger); }
+.tease-toast {
+  position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:200;
+  background:var(--toast-bg); border:1px solid var(--accent); border-radius:20px;
+  padding:8px 20px; font-size:0.9em; animation:teaseBounce .5s; pointer-events:none;
+  box-shadow:var(--shadow); white-space:nowrap; max-width:90vw;
+}
+.result-overlay {
+  position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8);
+  display:flex; align-items:center; justify-content:center; z-index:150;
+  animation:fadeIn .3s;
+}
+.result-card {
+  background:var(--modal-bg); border-radius:20px; padding:28px; text-align:center;
+  max-width:400px; width:90%; box-shadow:var(--shadow); border:1px solid var(--accent);
+  animation:resultPop .4s;
+}
+.result-card .icon { font-size:3em; margin-bottom:8px; }
+.result-card h2 { font-family:var(--font-math); margin-bottom:8px; }
+.result-card .stats { margin:12px 0; font-size:0.95em; line-height:2; }
+.result-card .stats span { color:var(--accent); font-weight:700; }
+.memorial-card {
+  background:var(--bg); border:2px solid var(--accent); border-radius:16px;
+  padding:20px; margin:16px 0; text-align:center; font-family:var(--font-math);
+}
+.memorial-card h3 { margin-bottom:8px; }
+.memorial-card .big-time { font-size:2.5em; color:var(--accent); font-weight:700; }
+.leaderboard-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:0.85em; }
+.leaderboard-table th {
+  padding:8px 6px; border-bottom:2px solid var(--accent); text-align:center; font-size:0.8em;
+  opacity:0.8;
+}
+.leaderboard-table td { padding:8px 6px; border-bottom:1px solid var(--border); text-align:center; }
+.leaderboard-table tr:hover td { background:var(--bg); }
+.rank-badge {
+  display:inline-block; width:22px; height:22px; line-height:22px; border-radius:50%;
+  text-align:center; font-size:0.75em; font-weight:700;
+}
+.rank-1 { background:#f9ca24; color:#1a1a1a; }
+.rank-2 { background:#bdc3c7; color:#1a1a1a; }
+.rank-3 { background:#e67e22; color:#fff; }
+.nickname-input {
+  width:100%; padding:10px; border:2px solid var(--border); border-radius:10px;
+  background:var(--bg); color:var(--text); font-size:1em; text-align:center; outline:none;
+}
+.help-text { font-size:0.8em; opacity:0.6; margin-top:6px; text-align:center; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes slideUp { from{opacity:0; transform:translateY(30px)} to{opacity:1; transform:translateY(0)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+@keyframes teaseBounce { 0%{opacity:0; transform:translateX(-50%) translateY(-10px)} 100%{opacity:1; transform:translateX(-50%) translateY(0)} }
+@keyframes resultPop { 0%{opacity:0; transform:scale(0.8)} 60%{transform:scale(1.05)} 100%{opacity:1; transform:scale(1)} }
+@keyframes correctFlash { 0%{box-shadow:0 0 0 0 var(--success)} 100%{box-shadow:0 0 0 20px transparent} }
+@keyframes wrongFlash { 0%{box-shadow:0 0 0 0 var(--danger)} 100%{box-shadow:0 0 0 20px transparent} }
+.correct-anim { animation:correctFlash .6s; }
+.wrong-anim { animation:wrongFlash .6s, shake .4s; }
+
+@media (max-width: 600px) {
+  :root { --cell-size: 10vw; }
+  .header h1 { font-size:1.1em; }
+  .btn { padding:6px 10px; font-size:0.75em; }
+  .info-value { font-size:1em; }
+  .modal { padding:16px; width:96%; }
+  .question-display { font-size:1.1em; padding:14px; }
+}
+@media (max-width: 400px) {
+  :root { --cell-size: 10.5vw; }
+  .board { gap:1px; padding:2px; }
+  .cell { border-radius:2px; }
+}
+@media (min-width: 601px) and (max-width: 900px) {
+  :root { --cell-size: 38px; }
+}
+@media (min-width: 901px) {
+  :root { --cell-size: 42px; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="header">
+    <h1>扫雷Plus</h1>
+    <div class="header-btns">
+      <button class="btn small" onclick="toggleTheme()" title="切换主题">🌓</button>
+      <button class="btn small" onclick="openLeaderboard()">🏆 排行</button>
+      <button class="btn small" onclick="openNicknameModal()">✏️ 昵称</button>
+      <button class="btn small" onclick="resetGame()">🔄 新局</button>
+    </div>
+  </div>
+
+  <div class="diff-selector">
+    <button class="diff-btn active" data-diff="easy" onclick="setDifficulty('easy')">📗 简单 8×8</button>
+    <button class="diff-btn" data-diff="medium" onclick="setDifficulty('medium')">📙 中等 12×12</button>
+    <button class="diff-btn" data-diff="hard" onclick="setDifficulty('hard')">📕 困难 16×16</button>
+  </div>
+
+  <div class="info-bar">
+    <div class="info-item">
+      <div class="info-label">⏱ 用时</div>
+      <div class="info-value" id="timer">00:00</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">❤️ 生命</div>
+      <div class="info-value lives" id="lives">3</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">💡 提示卡</div>
+      <div class="info-value" id="hints">3</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">🛡 避雷卡</div>
+      <div class="info-value" id="dodges">2</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">✅ 正确率</div>
+      <div class="info-value" id="accuracy">--</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">🚩 剩余雷</div>
+      <div class="info-value" id="mineCount">10</div>
+    </div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="help-text">🖱 点击格子答题 | 右键/长按插旗标记🚩</div>
+</div>
+
+<div class="modal-overlay" id="questionModal" style="display:none">
+  <div class="modal">
+    <h2>🤔 行不行啊？</h2>
+    <div class="question-display" id="questionText"></div>
+    <div style="text-align:center;font-size:0.8em;opacity:0.6;margin-bottom:8px;">
+      周边地雷: <strong id="mineHint"></strong> 颗 | 难度: <strong id="diffLabel"></strong>
+    </div>
+    <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+    <div style="text-align:center;font-size:0.8em;opacity:0.6;margin-bottom:8px;">
+      剩余时间: <strong id="qTimeLeft">90</strong>秒
+    </div>
+    <input class="answer-input" id="answerInput" placeholder="输入答案 (支持分数如1/3, pi, sqrt等)" autocomplete="off">
+    <div class="modal-btns">
+      <button class="btn accent" onclick="submitAnswer()">✅ 提交</button>
+      <button class="btn small" onclick="useHint()" id="hintBtn">💡 提示 (<span id="hintCount">3</span>)</button>
+      <button class="btn small" onclick="useDodge()" id="dodgeBtn">🛡 避雷 (<span id="dodgeCount">2</span>)</button>
+      <button class="btn small danger" onclick="closeQuestionModal()">✖ 放弃</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="leaderboardModal" style="display:none">
+  <div class="modal" style="max-width:550px;">
+    <h2>🏆 排行榜</h2>
+    <div style="max-height:50vh;overflow-y:auto;">
+      <table class="leaderboard-table">
+        <thead><tr><th>排名</th><th>昵称</th><th>难度</th><th>用时</th><th>正确率</th><th>日期</th></tr></thead>
+        <tbody id="leaderboardBody"></tbody>
+      </table>
+    </div>
+    <div id="noRecords" style="text-align:center;padding:20px;opacity:0.5;">暂无记录，快去挑战吧！</div>
+    <div class="modal-btns">
+      <button class="btn accent" onclick="closeLeaderboard()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="nicknameModal" style="display:none">
+  <div class="modal">
+    <h2>✏️ 设置昵称</h2>
+    <input class="nickname-input" id="nicknameInput" placeholder="输入你的昵称" maxlength="12">
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn accent" onclick="saveSettings()">保存</button>
+      <button class="btn" onclick="closeNicknameModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 常量配置 ──
+const DIFFICULTIES = {
+  easy:   { rows:8,  cols:8,  mines:10, label:'简单' },
+  medium: { rows:12, cols:12, mines:25, label:'中等' },
+  hard:   { rows:16, cols:16, mines:40, label:'困难' },
+};
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const QUESTION_TIME = 90;
+const TEASE_TIMES = [
+  [15, '思考中... 🤔'], [30, '还在算吗？加油~'], [45, '时间有点长了哦...'],
+  [60, '高数老师在哭泣 😢'], [75, '这题我是秒出的...'], [85, '你是在证明黎曼猜想吗？'],
+];
+
+// ── 题库: 简单 (1颗雷) ──
+const EASY_QUESTIONS = [
+  { text:'求 f(x)=x² 在 x=3 处的导数 f\'(3)', answer:6 },
+  { text:'求 f(x)=sin x 在 x=0 处的导数 f\'(0)', answer:1 },
+  { text:'求 f(x)=eˣ 在 x=0 处的导数 f\'(0)', answer:1 },
+  { text:'求定积分 ∫₀¹ 2x dx', answer:1 },
+  { text:'求 f(x)=ln x 在 x=1 处的导数 f\'(1)', answer:1 },
+  { text:'求定积分 ∫₀² x dx', answer:2 },
+  { text:'求 f(x)=cos x 在 x=π/2 处的导数 f\'(π/2)', answer:-1 },
+  { text:'求定积分 ∫₀ᵖⁱ sin x dx', answer:2 },
+  { text:'求 f(x)=x³ 在 x=2 处的导数 f\'(2)', answer:12 },
+  { text:'求定积分 ∫₀¹ 3x² dx', answer:1 },
+  { text:'求 f(x)=1/x 在 x=1 处的导数 f\'(1)', answer:-1 },
+  { text:'求 d/dx(5x²) 在 x=2 的值', answer:20 },
+  { text:'求定积分 ∫₀¹ 4x³ dx', answer:1 },
+  { text:'求 f(x)=tan x 在 x=0 处的导数 f\'(0)', answer:1 },
+  { text:'求定积分 ∫₀² 3 dx', answer:6 },
+  { text:'求矩阵 [[1,2],[3,4]] 的行列式', answer:-2 },
+  { text:'求向量 (3,4) 的模长', answer:5 },
+  { text:'求组合数 C(5,2)', answer:10 },
+  { text:'求排列数 P(5,2)', answer:20 },
+  { text:'已知 P(A)=0.3, P(B)=0.4, A与B互斥, 求P(A∪B)', answer:0.7 },
+];
+
+// ── 题库: 中等 (2-3颗雷) ──
+const MEDIUM_QUESTIONS = [
+  { text:'求极限 lim(x→0) sin x / x', answer:1 },
+  { text:'求极限 lim(x→0) (1-cos x)/x²', answer:0.5 },
+  { text:'求定积分 ∫₀¹ x·eˣ dx', answer:1 },
+  { text:'求极限 lim(x→0) (eˣ-1)/x', answer:1 },
+  { text:'求定积分 ∫₀^(π/2) cos x dx', answer:1 },
+  { text:'求 f(x)=x·sin x 在 x=π 处的导数', answer:'-pi' },
+  { text:'求极限 lim(x→∞) x·sin(1/x)', answer:1 },
+  { text:'求定积分 ∫₀¹ 1/(1+x²) dx', answer:'pi/4' },
+  { text:'求 f(x)=e²ˣ 在 x=0 处的导数', answer:2 },
+  { text:'求极限 lim(x→0) tan x / x', answer:1 },
+  { text:'求定积分 ∫₁ᵉ 1/x dx', answer:1 },
+  { text:'求极限 lim(x→0) (2ˣ-1)/x', answer:'ln2' },
+  { text:'求 d²/dx² (x³) 在 x=1 的值', answer:6 },
+  { text:'求矩阵 [[2,1],[1,2]] 的特征值之和(迹)', answer:4 },
+  { text:'已知正态分布X~N(0,1), 求P(|X|<1)的近似值', answer:0.6827 },
+  { text:'求极限 lim(x→0) (sin 2x)/x', answer:2 },
+  { text:'求定积分 ∫₀² (x²+1) dx', answer:'14/3' },
+  { text:'二项分布B(10,0.5), 求期望E(X)', answer:5 },
+  { text:'求矩阵 [[1,0],[0,2]] 的逆矩阵行列式', answer:0.5 },
+  { text:'求 f(x)=ln(sin x) 在 x=π/4 处的导数', answer:1 },
+];
+
+// ── 动态生成: 困难 (4+颗雷) ──
+function generateHardQuestion() {
+  const type = Math.floor(Math.random() * 6);
+  switch(type) {
+    case 0: return genDeterminant2x2();
+    case 1: return genDeterminant3x3();
+    case 2: return genBinomialProb();
+    case 3: return genEigenvalue();
+    case 4: return genIntegrationByParts();
+    default: return genDoubleIntegral();
+  }
+}
+
+function randInt(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
+function randSign() { return Math.random()<0.5 ? -1 : 1; }
+
+function genDeterminant2x2() {
+  const a=randInt(-5,5), b=randInt(-5,5), c=randInt(-5,5), d=randInt(-5,5);
+  return {
+    text: `求2阶行列式 |${a}  ${b}|\n               |${c}  ${d}| 的值`,
+    answer: a*d - b*c
+  };
+}
+function genDeterminant3x3() {
+  const a=randInt(-3,3), b=randInt(-3,3), c=randInt(-3,3);
+  const d=randInt(-3,3), e=randInt(-3,3), f=randInt(-3,3);
+  const g=randInt(-3,3), h=randInt(-3,3), i=randInt(-3,3);
+  const det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+  return {
+    text: `求3阶行列式 |${a} ${b} ${c}|\n               |${d} ${e} ${f}|\n               |${g} ${h} ${i}| 的值`,
+    answer: det
+  };
+}
+function genBinomialProb() {
+  const n=randInt(5,10), k=randInt(1,n-1), p=[0.2,0.25,0.3,0.4,0.5,0.6,0.7,0.75][randInt(0,7)];
+  function comb(n,k){ if(k<0||k>n)return 0; let r=1; for(let i=1;i<=k;i++)r=r*(n-i+1)/i; return r; }
+  const ans = comb(n,k)*Math.pow(p,k)*Math.pow(1-p,n-k);
+  return {
+    text: `设X~B(${n},${p}), 求P(X=${k}) (保留4位小数)`,
+    answer: +ans.toFixed(6)
+  };
+}
+function genEigenvalue() {
+  const a=randInt(1,4), b=randInt(-3,3), c=randInt(-3,3);
+  const d=randInt(1,4);
+  const trace=a+d, det=a*d-b*c;
+  const disc=Math.sqrt(trace*trace-4*det);
+  const lambda=Math.max((trace+disc)/2, (trace-disc)/2);
+  return {
+    text: `求矩阵 [[${a},${b}],[${c},${d}]] 的最大特征值 (保留2位小数)`,
+    answer: +lambda.toFixed(4)
+  };
+}
+function genIntegrationByParts() {
+  const n=randInt(1,3), a=randInt(1,3);
+  const I = [Math.E-1, 1, Math.E-2, 6-2*Math.E];
+  const ans = +(a * I[n]).toFixed(6);
+  if (n===1) return { text:`求定积分 ∫₀¹ ${a}x·eˣ dx`, answer: a };
+  return {
+    text: `求定积分 ∫₀¹ ${a}x^${n}·eˣ dx (保留3位小数)`,
+    answer: ans
+  };
+}
+function genDoubleIntegral() {
+  const a=randInt(1,3), b=randInt(1,3);
+  const ans = a*b/4;
+  return {
+    text: `求二重积分 ∫₀¹∫₀¹ ${a}x·${b}y dx dy`,
+    answer: +ans.toFixed(6)
+  };
+}
+
+// ── 答案解析与比较 ──
+function parseAnswer(input) {
+  let expr = input.trim().toLowerCase().replace(/\s+/g,'');
+  if (expr==='') return NaN;
+  expr = expr.replace(/π/g,'pi');
+  expr = expr.replace(/√(\d+)/g,'sqrt($1)');
+  expr = expr.replace(/√\(/g,'sqrt(');
+  expr = expr.replace(/(?<![a-z0-9])e(?![a-z0-9+\-])/g, '('+String(Math.E)+')');
+  expr = expr.replace(/pi/g, String(Math.PI));
+  expr = expr.replace(/sqrt\(/g,'Math.sqrt(');
+  expr = expr.replace(/ln\(/g,'Math.log(');
+  expr = expr.replace(/(?<!Math\.)sin\(/g,'Math.sin(');
+  expr = expr.replace(/(?<!Math\.)cos\(/g,'Math.cos(');
+  expr = expr.replace(/(?<!Math\.)tan\(/g,'Math.tan(');
+  expr = expr.replace(/(?<!Math\.)abs\(/g,'Math.abs(');
+  expr = expr.replace(/\^/g,'**');
+  expr = expr.replace(/log\(/g,'Math.log10(');
+  try { return new Function('return '+expr)(); }
+  catch(e) { return NaN; }
+}
+
+function answersMatch(userInput, correct) {
+  const userVal = parseAnswer(userInput);
+  if (isNaN(userVal)) return false;
+  if (typeof correct === 'string') {
+    const correctVal = parseAnswer(correct);
+    if (isNaN(correctVal)) return false;
+    return Math.abs(userVal - correctVal) < 0.015;
+  }
+  if (Math.abs(correct) < 0.001) return Math.abs(userVal - correct) < 0.015;
+  const relErr = Math.abs((userVal - correct) / correct);
+  return relErr < 0.02 || Math.abs(userVal - correct) < 0.015;
+}
+
+function formatAnswer(answer) {
+  if (typeof answer === 'number') {
+    if (Number.isInteger(answer)) return String(answer);
+    return answer.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  }
+  return String(answer);
+}
+
+// ── 游戏状态 ──
+let game = {
+  difficulty: 'easy',
+  rows: 8, cols: 8, totalMines: 10,
+  board: [],           // {mine, adjacent, state:'hidden'|'revealed'|'flagged'}
+  gameStarted: false,
+  gameOver: false,
+  timerInterval: null,
+  elapsed: 0,
+  lives: 3,
+  hints: 3,
+  dodges: 2,
+  totalAnswered: 0,
+  correctAnswered: 0,
+  revealedCount: 0,
+  totalSafeCells: 0,
+  currentQuestionCell: null,
+  currentQuestion: null,
+  questionTimer: null,
+  questionElapsed: 0,
+  teaseIndex: 0,
+  questionAnswered: false,
+};
+
+function resetGameState() {
+  const diff = DIFFICULTIES[game.difficulty];
+  game.rows = diff.rows; game.cols = diff.cols; game.totalMines = diff.mines;
+  game.board = [];
+  game.gameStarted = false; game.gameOver = false;
+  if (game.timerInterval) clearInterval(game.timerInterval);
+  game.timerInterval = null; game.elapsed = 0;
+  game.lives = 3; game.hints = 3; game.dodges = 2;
+  game.totalAnswered = 0; game.correctAnswered = 0;
+  game.revealedCount = 0;
+  game.totalSafeCells = game.rows * game.cols - game.totalMines;
+  game.currentQuestionCell = null; game.currentQuestion = null;
+  if (game.questionTimer) clearInterval(game.questionTimer);
+  game.questionTimer = null; game.questionElapsed = 0; game.teaseIndex = 0;
+  game.questionAnswered = false;
+  closeQuestionModal();
+  initBoard();
+  renderBoard();
+  updateUI();
+}
+
+function initBoard() {
+  game.board = [];
+  for (let r=0; r<game.rows; r++) {
+    game.board[r]=[];
+    for (let c=0; c<game.cols; c++) {
+      game.board[r][c]={ mine:false, adjacent:0, state:'hidden' };
+    }
+  }
+}
+
+function placeMines(safeR, safeC) {
+  const positions=[];
+  for (let r=0; r<game.rows; r++)
+    for (let c=0; c<game.cols; c++)
+      if (Math.abs(r-safeR)>1 || Math.abs(c-safeC)>1)
+        positions.push([r,c]);
+  for (let i=positions.length-1; i>0; i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [positions[i],positions[j]]=[positions[j],positions[i]];
+  }
+  for (let i=0; i<Math.min(game.totalMines, positions.length); i++) {
+    const [r,c]=positions[i];
+    game.board[r][c].mine=true;
+  }
+  for (let r=0; r<game.rows; r++)
+    for (let c=0; c<game.cols; c++)
+      if (!game.board[r][c].mine)
+        game.board[r][c].adjacent=countAdjacentMines(r,c);
+}
+
+function countAdjacentMines(r, c) {
+  let count=0;
+  for (const [dr,dc] of DIRS) {
+    const nr=r+dr, nc=c+dc;
+    if (nr>=0 && nr<game.rows && nc>=0 && nc<game.cols && game.board[nr][nc].mine) count++;
+  }
+  return count;
+}
+
+function isValid(r,c) { return r>=0 && r<game.rows && c>=0 && c<game.cols; }
+
+function floodFill(r, c) {
+  const queue=[[r,c]];
+  const visited=new Set();
+  visited.add(r+','+c);
+  while (queue.length>0) {
+    const [cr,cc]=queue.shift();
+    const cell=game.board[cr][cc];
+    if (cell.mine || cell.state==='flagged' || cell.state==='revealed') continue;
+    cell.state='revealed'; game.revealedCount++;
+    if (cell.adjacent===0) {
+      for (const [dr,dc] of DIRS) {
+        const nr=cr+dr, nc=cc+dc;
+        const key=nr+','+nc;
+        if (isValid(nr,nc) && !visited.has(key)) {
+          visited.add(key);
+          queue.push([nr,nc]);
+        }
+      }
+    }
+  }
+}
+
+function checkWin() {
+  if (game.revealedCount >= game.totalSafeCells) return true;
+  const cells=game.board.flat();
+  const allMinesFlagged=cells.every(c=>c.mine ? c.state==='flagged' : c.state!=='flagged');
+  return allMinesFlagged;
+}
+
+// ── 题目选择 ──
+function getQuestion(adjacentMines) {
+  if (adjacentMines===1) {
+    return EASY_QUESTIONS[Math.floor(Math.random()*EASY_QUESTIONS.length)];
+  } else if (adjacentMines<=3) {
+    return MEDIUM_QUESTIONS[Math.floor(Math.random()*MEDIUM_QUESTIONS.length)];
+  } else {
+    return generateHardQuestion();
+  }
+}
+
+function getDiffLabel(adjacent) {
+  if (adjacent===1) return '⭐ 基础';
+  if (adjacent<=3) return '⭐⭐ 中等';
+  return '⭐⭐⭐ 困难';
+}
+
+// ── 渲染 ──
+function calcCellSize() {
+  const maxW = Math.min(window.innerWidth - 16, 720);
+  const size = Math.max(24, Math.min(46, Math.floor((maxW - game.cols * 2 - 6) / game.cols)));
+  return size;
+}
+function renderBoard() {
+  const cellSize = calcCellSize();
+  document.documentElement.style.setProperty('--cell-size', cellSize + 'px');
+  const boardEl=document.getElementById('board');
+  boardEl.style.gridTemplateColumns=`repeat(${game.cols}, ${cellSize}px)`;
+  boardEl.style.gridTemplateRows=`repeat(${game.rows}, ${cellSize}px)`;
+  boardEl.innerHTML='';
+  for (let r=0; r<game.rows; r++) {
+    for (let c=0; c<game.cols; c++) {
+      const cell=game.board[r][c];
+      const div=document.createElement('div');
+      div.className='cell';
+      div.dataset.row=r; div.dataset.col=c;
+      if (cell.state==='revealed') {
+        div.classList.add('open');
+        if (cell.mine) {
+          div.textContent='💣'; div.classList.add('mine-hit');
+        } else if (cell.adjacent>0) {
+          div.textContent=cell.adjacent;
+          const chalkMap={1:'chalk-1',2:'chalk-2',3:'chalk-3',4:'chalk-4',5:'chalk-5'};
+          if (chalkMap[cell.adjacent]) div.classList.add(chalkMap[cell.adjacent]);
+          else div.classList.add('chalk-more');
+        }
+      } else if (cell.state==='flagged') {
+        div.textContent='🚩'; div.classList.add('flag');
+      }
+      div.addEventListener('click', (e)=>onCellClick(r,c,e));
+      div.addEventListener('contextmenu', (e)=>{ e.preventDefault(); toggleFlag(r,c); });
+      div.addEventListener('touchstart', (e)=>onTouchStart(r,c,e,div));
+      div.addEventListener('touchend', (e)=>onTouchEnd(r,c,e,div));
+      div.addEventListener('touchmove', (e)=>onTouchMove(e,div));
+      boardEl.appendChild(div);
+    }
+  }
+}
+
+let touchStartTime=0, touchStartPos=null, touchCell=null;
+
+function onTouchStart(r,c,e,div) {
+  touchStartTime=Date.now();
+  touchStartPos=[r,c];
+  touchCell=div;
+}
+
+function onTouchEnd(r,c,e,div) {
+  const elapsed=Date.now()-touchStartTime;
+  if (touchStartPos && touchStartPos[0]===r && touchStartPos[1]===c) {
+    if (elapsed>500) {
+      e.preventDefault();
+      toggleFlag(r,c);
+    } else {
+      onCellClick(r,c,e);
+    }
+  }
+  touchStartTime=0; touchStartPos=null; touchCell=null;
+}
+
+function onTouchMove(e,div) {
+  if (Date.now()-touchStartTime>200) {
+    touchStartPos=null;
+  }
+}
+
+function onCellClick(r,c,e) {
+  if (game.gameOver) return;
+  const cell=game.board[r][c];
+  if (cell.state==='revealed' || cell.state==='flagged') return;
+
+  if (!game.gameStarted) {
+    game.gameStarted=true;
+    placeMines(r,c);
+    startTimer();
+    renderBoard();
+    updateUI();
+  }
+
+  if (cell.mine) {
+    hitMine(r,c);
+    return;
+  }
+
+  if (cell.adjacent===0) {
+    floodFill(r,c);
+    renderBoard();
+    updateUI();
+    if (checkWin()) winGame();
+  } else {
+    openQuestionModal(r,c,cell.adjacent);
+  }
+}
+
+function hitMine(r,c) {
+  if (game.dodges > 0) {
+    game.dodges--;
+    game.board[r][c].state='flagged';
+    renderBoard();
+    updateUI();
+    showTease('🛡 避雷卡自动抵挡！剩余 '+game.dodges+' 张', false);
+    return;
+  }
+  game.lives--;
+  game.totalAnswered++;
+  const cell=game.board[r][c];
+  cell.state='revealed';
+  renderBoard();
+  const boardEl=document.getElementById('board');
+  const cellEl=boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+  if (cellEl) cellEl.classList.add('mine-hit');
+  updateUI();
+  if (game.lives<=0) {
+    loseGame();
+  } else {
+    showTease('💥 踩到雷了！剩余生命: '+game.lives, true);
+  }
+}
+
+function toggleFlag(r,c) {
+  if (game.gameOver) return;
+  const cell=game.board[r][c];
+  if (cell.state==='revealed') return;
+  if (cell.state==='hidden') {
+    const flaggedCount=game.board.flat().filter(cell=>cell.state==='flagged').length;
+    if (flaggedCount >= game.totalMines) {
+      showTease('🚩 标记数已达地雷总数，不能再标了！', true);
+      return;
+    }
+  }
+  cell.state = cell.state==='flagged' ? 'hidden' : 'flagged';
+  renderBoard();
+  updateUI();
+  if (checkWin()) winGame();
+}
+
+function updateUI() {
+  document.getElementById('lives').textContent=game.lives;
+  document.getElementById('hints').textContent=game.hints;
+  document.getElementById('dodges').textContent=game.dodges;
+  document.getElementById('hintCount').textContent=game.hints;
+  document.getElementById('dodgeCount').textContent=game.dodges;
+  const flaggedCount=game.board.flat().filter(c=>c.state==='flagged').length;
+  document.getElementById('mineCount').textContent=game.totalMines - flaggedCount;
+  if (game.totalAnswered>0) {
+    const pct=Math.round(game.correctAnswered/game.totalAnswered*100);
+    document.getElementById('accuracy').textContent=pct+'%';
+  } else {
+    document.getElementById('accuracy').textContent='--';
+  }
+  const hintBtn=document.getElementById('hintBtn');
+  const dodgeBtn=document.getElementById('dodgeBtn');
+  if (hintBtn) hintBtn.style.display=game.hints>0 ? '' : 'none';
+  if (dodgeBtn) dodgeBtn.style.display=game.dodges>0 ? '' : 'none';
+}
+
+function startTimer() {
+  game.elapsed=0;
+  updateTimerDisplay();
+  game.timerInterval=setInterval(()=>{
+    game.elapsed++;
+    updateTimerDisplay();
+  },1000);
+}
+
+function updateTimerDisplay() {
+  const m=Math.floor(game.elapsed/60), s=game.elapsed%60;
+  document.getElementById('timer').textContent=
+    String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+function stopTimer() {
+  if (game.timerInterval) { clearInterval(game.timerInterval); game.timerInterval=null; }
+}
+
+// ── 答题弹窗 ──
+function openQuestionModal(r,c,adjacent) {
+  if (game.gameOver) return;
+  game.currentQuestionCell=[r,c];
+  game.currentQuestion=getQuestion(adjacent);
+  game.questionElapsed=0;
+  game.questionAnswered=false;
+  game.teaseIndex=0;
+  document.getElementById('questionText').textContent=game.currentQuestion.text;
+  document.getElementById('mineHint').textContent=adjacent;
+  document.getElementById('diffLabel').textContent=getDiffLabel(adjacent);
+  document.getElementById('answerInput').value='';
+  document.getElementById('timerFill').style.width='100%';
+  document.getElementById('timerFill').classList.remove('urgent');
+  document.getElementById('qTimeLeft').textContent=QUESTION_TIME;
+  document.getElementById('questionModal').style.display='';
+  document.getElementById('answerInput').focus();
+  if (game.questionTimer) clearInterval(game.questionTimer);
+  game.questionTimer=setInterval(()=>{
+    game.questionElapsed++;
+    const remaining=QUESTION_TIME-game.questionElapsed;
+    const pct=Math.max(0, remaining/QUESTION_TIME*100);
+    document.getElementById('timerFill').style.width=pct+'%';
+    document.getElementById('qTimeLeft').textContent=Math.max(0,remaining);
+    if (remaining<=15) document.getElementById('timerFill').classList.add('urgent');
+    for (const [t,msg] of TEASE_TIMES) {
+      if (game.questionElapsed===t) showTease(msg, false);
+    }
+    if (remaining<=0) {
+      submitAnswer(); // 超时自动提交(按错处理)
+    }
+  },1000);
+}
+
+function closeQuestionModal() {
+  document.getElementById('questionModal').style.display='none';
+  if (game.questionTimer) { clearInterval(game.questionTimer); game.questionTimer=null; }
+  game.currentQuestionCell=null; game.currentQuestion=null; game.questionAnswered=false;
+}
+
+function submitAnswer() {
+  if (game.questionAnswered || !game.currentQuestion) return;
+  game.questionAnswered=true;
+  if (game.questionTimer) { clearInterval(game.questionTimer); game.questionTimer=null; }
+  const input=document.getElementById('answerInput').value.trim();
+  const correct=answersMatch(input, game.currentQuestion.answer);
+  game.totalAnswered++;
+  const [r,c]=game.currentQuestionCell;
+
+  if (correct) {
+    game.correctAnswered++;
+    game.board[r][c].state='revealed';
+    game.revealedCount++;
+    closeQuestionModal();
+    renderBoard();
+    const boardEl=document.getElementById('board');
+    const cellEl=boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+    if (cellEl) { cellEl.classList.add('correct-anim'); setTimeout(()=>cellEl.classList.remove('correct-anim'),600); }
+    updateUI();
+    if (checkWin()) winGame();
+  } else {
+    game.lives--;
+    closeQuestionModal();
+    const ansStr=formatAnswer(game.currentQuestion.answer);
+    showTease('❌ 答错了！正确答案: '+ansStr+' | 剩余生命: '+game.lives, true);
+    updateUI();
+    if (game.lives<=0) loseGame();
+  }
+}
+
+function useHint() {
+  if (!game.currentQuestion || game.hints<=0 || game.questionAnswered) return;
+  game.hints--;
+  game.questionAnswered=true;
+  if (game.questionTimer) { clearInterval(game.questionTimer); game.questionTimer=null; }
+  const ansStr=formatAnswer(game.currentQuestion.answer);
+  const [r,c]=game.currentQuestionCell;
+  closeQuestionModal();
+  showTease('💡 答案揭晓: '+ansStr, false);
+  game.totalAnswered++;
+  game.correctAnswered++;
+  game.board[r][c].state='revealed';
+  game.revealedCount++;
+  renderBoard();
+  updateUI();
+  if (checkWin()) winGame();
+}
+
+function useDodge() {
+  if (game.dodges<=0) return;
+  game.dodges--;
+  const unopenedMines=[];
+  for (let r=0; r<game.rows; r++)
+    for (let c=0; c<game.cols; c++)
+      if (game.board[r][c].mine && game.board[r][c].state==='hidden')
+        unopenedMines.push([r,c]);
+  if (unopenedMines.length>0) {
+    const [r,c]=unopenedMines[Math.floor(Math.random()*unopenedMines.length)];
+    game.board[r][c].state='flagged';
+    if (game.currentQuestionCell && !game.questionAnswered) {
+      game.questionAnswered=true;
+      if (game.questionTimer) { clearInterval(game.questionTimer); game.questionTimer=null; }
+      closeQuestionModal();
+    }
+    renderBoard();
+    updateUI();
+    showTease('🛡 避雷卡已标记一处地雷！', false);
+  } else {
+    showTease('🛡 没有可标记的雷了', false);
+  }
+}
+
+// ── 嘲讽弹窗 ──
+let teaseTimeout=null;
+function showTease(msg, isImportant) {
+  if (teaseTimeout) clearTimeout(teaseTimeout);
+  const existing=document.querySelector('.tease-toast');
+  if (existing) existing.remove();
+  const toast=document.createElement('div');
+  toast.className='tease-toast';
+  toast.textContent=msg;
+  if (isImportant) toast.style.borderColor='var(--danger)';
+  document.body.appendChild(toast);
+  teaseTimeout=setTimeout(()=>{ if(toast.parentNode) toast.remove(); }, isImportant?2500:2000);
+}
+
+// ── 胜利/失败 ──
+function winGame() {
+  game.gameOver=true;
+  stopTimer();
+  for (let r=0; r<game.rows; r++)
+    for (let c=0; c<game.cols; c++)
+      if (game.board[r][c].mine && game.board[r][c].state!=='flagged')
+        game.board[r][c].state='flagged';
+  renderBoard();
+  updateUI();
+  const accuracy=game.totalAnswered>0?Math.round(game.correctAnswered/game.totalAnswered*100):100;
+  addToLeaderboard(accuracy);
+  showResultOverlay(true, accuracy);
+}
+
+function loseGame() {
+  game.gameOver=true;
+  stopTimer();
+  for (let r=0; r<game.rows; r++)
+    for (let c=0; c<game.cols; c++)
+      if (game.board[r][c].mine) game.board[r][c].state='revealed';
+  renderBoard();
+  updateUI();
+  showResultOverlay(false, 0);
+}
+
+function showResultOverlay(won, accuracy) {
+  const overlay=document.createElement('div');
+  overlay.className='result-overlay';
+  overlay.id='resultOverlay';
+  const diffLabel=DIFFICULTIES[game.difficulty].label;
+  const m=Math.floor(game.elapsed/60), s=game.elapsed%60;
+  const timeStr=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  const timeSec=game.elapsed;
+
+  overlay.innerHTML=`
+    <div class="result-card">
+      <div class="icon">${won?'🎉':'💀'}</div>
+      <h2 style="color:${won?'var(--success)':'var(--danger)'}">${won?'通关成功！':'游戏结束'}</h2>
+      <div class="stats">
+        ${won?`<div>⏱ 通关用时: <span>${timeStr}</span></div>`:''}
+        <div>📊 难度: <span>${diffLabel}</span></div>
+        <div>📏 棋盘: <span>${game.rows}×${game.cols}</span></div>
+        <div>💣 地雷: <span>${game.totalMines}</span></div>
+        <div>✅ 正确率: <span>${accuracy}%</span></div>
+        <div>❤️ 剩余生命: <span>${game.lives}</span></div>
+      </div>
+      ${won?`
+        <div class="memorial-card">
+          <div style="font-size:0.8em;opacity:0.7;">荣誉纪念</div>
+          <div class="big-time">${timeStr}</div>
+          <div>${getPlayerName()} | ${diffLabel} | 正确率${accuracy}%</div>
+          <div style="margin-top:8px;font-size:0.75em;opacity:0.5;">扫雷Plus · 高数版</div>
+        </div>
+      `:''}
+      <div class="modal-btns">
+        <button class="btn accent" onclick="document.getElementById('resultOverlay').remove();resetGame();">🔄 再来一局</button>
+        ${won?`<button class="btn" onclick="downloadCard()">📸 保存纪念卡</button>`:''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function downloadCard() {
+  const card=document.querySelector('.memorial-card');
+  if (!card) return;
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=500; canvas.height=280;
+  const isLight=document.body.classList.contains('light');
+  ctx.fillStyle=isLight?'#f5f3ee':'#1a1d25';
+  ctx.fillRect(0,0,500,280);
+  ctx.strokeStyle='#c4a44a'; ctx.lineWidth=3;
+  ctx.strokeRect(10,10,480,260);
+  ctx.fillStyle=isLight?'#2c2416':'#d4d4c8';
+  ctx.font='bold 20px Georgia, serif'; ctx.textAlign='center';
+  ctx.fillText('扫雷Plus · 高数版',250,45);
+  ctx.fillText('荣誉纪念卡',250,75);
+  ctx.fillStyle='#c4a44a'; ctx.font='bold 48px Georgia, serif';
+  const m=Math.floor(game.elapsed/60), s=game.elapsed%60;
+  ctx.fillText(String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'),250,140);
+  ctx.fillStyle=isLight?'#2c2416':'#d4d4c8'; ctx.font='16px Georgia, serif';
+  const accuracy=game.totalAnswered>0?Math.round(game.correctAnswered/game.totalAnswered*100):100;
+  ctx.fillText(getPlayerName()+' | '+DIFFICULTIES[game.difficulty].label+' | 正确率'+accuracy+'%',250,175);
+  ctx.fillStyle='rgba(128,128,128,0.5)'; ctx.font='12px sans-serif';
+  ctx.fillText(new Date().toLocaleDateString('zh-CN')+' 扫雷Plus高数版',250,245);
+  const link=document.createElement('a');
+  link.download='扫雷Plus纪念卡_'+(new Date().toISOString().slice(0,10))+'.png';
+  link.href=canvas.toDataURL();
+  link.click();
+}
+
+// ── Supabase 配置 ──
+const SB_URL = 'https://ghzcvyzkdzxxvetfklkg.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoemN2eXprZHp4eHZldGZrbGtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MTg5NjAsImV4cCI6MjA5NTA5NDk2MH0.aEwa4iwA2_mud2ZaBP3d_rUHMHKmgvhkTeQJ1Q_oY1Y';
+
+async function sbFetch(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(SB_URL + path, opts);
+  if (!res.ok) throw new Error(res.status);
+  if (method === 'GET') return res.json();
+  return null;
+}
+
+// ── 排行榜 ──
+function getPlayerName() {
+  const custom = localStorage.getItem('minesweeper_nickname');
+  let uid = localStorage.getItem('minesweeper_uid');
+  if (!uid) { uid = Date.now().toString(36) + Math.random().toString(36).slice(2,6); localStorage.setItem('minesweeper_uid', uid); }
+  if (custom && custom !== '匿名玩家') return custom;
+  return '匿名玩家#' + uid.slice(-5);
+}
+
+async function addToLeaderboard(accuracy) {
+  const entry={
+    name: getPlayerName(),
+    difficulty: DIFFICULTIES[game.difficulty].label,
+    time_sec: game.elapsed,
+    accuracy: accuracy,
+  };
+  try {
+    await sbFetch('POST', '/rest/v1/leaderboard', entry);
+    return;
+  } catch(e) {}
+  // 本地兜底
+  const lb=getLocalLeaderboard();
+  lb.push({...entry, time:entry.time_sec, difficultyRank:game.difficulty==='hard'?3:game.difficulty==='medium'?2:1, date:new Date().toLocaleDateString('zh-CN')});
+  lb.sort((a,b)=>{ if(a.time!==b.time)return a.time-b.time; return b.difficultyRank-a.difficultyRank; });
+  saveLocalLeaderboard(lb.slice(0,50));
+}
+
+function getLocalLeaderboard() {
+  try { return JSON.parse(localStorage.getItem('minesweeper_leaderboard')||'[]'); }
+  catch(e) { return []; }
+}
+function saveLocalLeaderboard(data) { localStorage.setItem('minesweeper_leaderboard', JSON.stringify(data)); }
+
+async function openLeaderboard() {
+  const tbody=document.getElementById('leaderboardBody');
+  const noRecords=document.getElementById('noRecords');
+  tbody.innerHTML='<tr><td colspan="6" style="padding:20px;">加载中...</td></tr>';
+  noRecords.style.display='none';
+  document.getElementById('leaderboardModal').style.display='';
+
+  let lb=[];
+  try {
+    const data = await sbFetch('GET', '/rest/v1/leaderboard?select=*&order=time_sec.asc,difficulty.desc&limit=50');
+    if (data && data.length) lb=data.map(e=>({name:e.name, difficulty:e.difficulty, time:e.time_sec||e.time, accuracy:e.accuracy, date:e.created_at?new Date(e.created_at).toLocaleDateString('zh-CN'):''}));
+  } catch(e) {}
+  if (lb.length===0) lb=getLocalLeaderboard();
+
+  tbody.innerHTML='';
+  if (lb.length===0) {
+    noRecords.style.display='';
+  } else {
+    noRecords.style.display='none';
+    lb.forEach((entry,i)=>{
+      const tr=document.createElement('tr');
+      let rankHtml='';
+      if (i===0) rankHtml='<span class="rank-badge rank-1">1</span>';
+      else if (i===1) rankHtml='<span class="rank-badge rank-2">2</span>';
+      else if (i===2) rankHtml='<span class="rank-badge rank-3">3</span>';
+      else rankHtml=i+1;
+      const m=Math.floor(entry.time/60), s=entry.time%60;
+      tr.innerHTML=`
+        <td>${rankHtml}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${entry.difficulty}</td>
+        <td>${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</td>
+        <td>${entry.accuracy}%</td>
+        <td>${entry.date||''}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function closeLeaderboard() {
+  document.getElementById('leaderboardModal').style.display='none';
+}
+
+function escapeHtml(str) {
+  const div=document.createElement('div');
+  div.textContent=str;
+  return div.innerHTML;
+}
+
+// ── 昵称 ──
+function openNicknameModal() {
+  document.getElementById('nicknameInput').value=getPlayerName();
+  document.getElementById('nicknameModal').style.display='';
+  document.getElementById('nicknameInput').focus();
+}
+
+function closeNicknameModal() {
+  document.getElementById('nicknameModal').style.display='none';
+}
+
+async function saveSettings() {
+  const name=document.getElementById('nicknameInput').value.trim()||'匿名玩家';
+  const oldName = (localStorage.getItem('minesweeper_nickname')||'匿名玩家');
+  let uid = localStorage.getItem('minesweeper_uid');
+  if (!uid) { uid = Date.now().toString(36)+Math.random().toString(36).slice(2,6); localStorage.setItem('minesweeper_uid', uid); }
+  if (name !== oldName && name !== '匿名玩家') {
+    try {
+      if (oldName !== '匿名玩家') {
+        const old = await sbFetch('GET', '/rest/v1/nicknames?select=id&uid=eq.'+uid+'&name=eq.'+encodeURIComponent(oldName));
+        if (old && old.length > 0) {
+          await sbFetch('DELETE', '/rest/v1/nicknames?id=eq.'+old[0].id);
+        }
+      }
+      await sbFetch('POST', '/rest/v1/nicknames', { name: name, uid: uid });
+    } catch(e) {
+      showTease('❌ 昵称已被占用，换一个吧！', true);
+      return;
+    }
+  }
+  localStorage.setItem('minesweeper_nickname', name);
+  closeNicknameModal();
+  showTease('昵称已更新: '+name, false);
+}
+
+// ── 主题 ──
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  localStorage.setItem('minesweeper_theme', document.body.classList.contains('light')?'light':'dark');
+}
+
+function loadTheme() {
+  const theme=localStorage.getItem('minesweeper_theme');
+  if (theme==='light') document.body.classList.add('light');
+}
+
+// ── 难度 ──
+function setDifficulty(diff) {
+  game.difficulty=diff;
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`[data-diff="${diff}"]`);
+  if (btn) btn.classList.add('active');
+  resetGame();
+}
+
+// ── 重置 ──
+function resetGame() {
+  const overlay=document.getElementById('resultOverlay');
+  if (overlay) overlay.remove();
+  resetGameState();
+}
+
+// ── 全局点击关闭弹窗 ──
+document.addEventListener('click', function(e) {
+  if (e.target.id==='leaderboardModal') closeLeaderboard();
+  if (e.target.id==='nicknameModal') closeNicknameModal();
+  if (e.target.id==='questionModal') {
+    // 点击遮罩不关闭答题弹窗，防止误触
+  }
+});
+
+// ── 键盘事件 ──
+document.addEventListener('keydown', function(e) {
+  if (e.key==='Enter' && document.getElementById('questionModal').style.display!=='none') {
+    e.preventDefault();
+    submitAnswer();
+  }
+  if (e.key==='Escape') {
+    if (document.getElementById('leaderboardModal').style.display!=='none') closeLeaderboard();
+    else if (document.getElementById('nicknameModal').style.display!=='none') closeNicknameModal();
+  }
+});
+
+// ── 窗口缩放适配 ──
+let resizeDebounce=null;
+window.addEventListener('resize', ()=>{
+  if (resizeDebounce) clearTimeout(resizeDebounce);
+  resizeDebounce = setTimeout(()=>{ if (!game.gameOver) renderBoard(); }, 200);
+});
+
+// ── 本地记录迁移到云端 ──
+async function migrateLocalToCloud() {
+  const local = getLocalLeaderboard();
+  if (local.length === 0) return;
+  for (const e of local) {
+    try {
+      await sbFetch('POST', '/rest/v1/leaderboard', {
+        name: e.name,
+        difficulty: e.difficulty,
+        time_sec: e.time || e.time_sec,
+        accuracy: e.accuracy,
+      });
+    } catch(_) { break; }
+  }
+  saveLocalLeaderboard([]);
+}
+
+// ── 启动 ──
+loadTheme();
+resetGameState();
+migrateLocalToCloud();
+</script>
+</body>
+</html>
